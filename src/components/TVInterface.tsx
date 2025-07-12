@@ -1,20 +1,30 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Play, Mic, MicOff, Settings, Search } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Settings, Mic, MicOff } from 'lucide-react';
 import { AppGrid } from './AppGrid';
 import { HeroSection } from './HeroSection';
 import { VoiceOverlay } from './VoiceOverlay';
 import { NavigationHandler } from './NavigationHandler';
+import { useWakeWordDetection } from '../hooks/useWakeWordDetection';
 
 interface TVInterfaceProps {}
 
 export const TVInterface: React.FC<TVInterfaceProps> = () => {
-  const [isListening, setIsListening] = useState(false);
   const [showVoiceOverlay, setShowVoiceOverlay] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [focusedSection, setFocusedSection] = useState<'hero' | 'apps' | 'header'>('hero');
   const [focusedHeaderItem, setFocusedHeaderItem] = useState(0);
-  const [recognition, setRecognition] = useState<any>(null);
+
+  // Wake word detection
+  const handleWakeWord = () => {
+    console.log('Wake word detected!');
+    setShowVoiceOverlay(true);
+  };
+
+  const { isListening } = useWakeWordDetection({
+    onWakeWord: handleWakeWord,
+    isActive: !showVoiceOverlay
+  });
 
   // Update time every minute
   useEffect(() => {
@@ -24,92 +34,8 @@ export const TVInterface: React.FC<TVInterfaceProps> = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const startWakeWordDetection = useCallback(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-      const newRecognition = new SpeechRecognition();
-      newRecognition.continuous = true;
-      newRecognition.interimResults = true;
-      
-      newRecognition.onresult = (event: any) => {
-        const last = event.results.length - 1;
-        const transcript = event.results[last][0].transcript.toLowerCase().trim();
-        
-        console.log('Voice detected:', transcript);
-        
-        if (transcript.includes('hey atlas') || transcript.includes('atlas')) {
-          handleWakeWord();
-        }
-      };
-
-      newRecognition.onstart = () => {
-        console.log('Wake word detection started');
-        setIsListening(true);
-      };
-
-      newRecognition.onerror = (event: any) => {
-        console.log('Wake word detection error:', event.error);
-        // Restart after error
-        setTimeout(() => {
-          if (!showVoiceOverlay) {
-            startWakeWordDetection();
-          }
-        }, 1000);
-      };
-
-      newRecognition.onend = () => {
-        console.log('Wake word detection ended');
-        setIsListening(false);
-        // Restart if overlay is not showing
-        if (!showVoiceOverlay) {
-          setTimeout(() => {
-            startWakeWordDetection();
-          }, 500);
-        }
-      };
-
-      try {
-        newRecognition.start();
-        setRecognition(newRecognition);
-      } catch (error) {
-        console.log('Could not start wake word detection:', error);
-      }
-    }
-  }, [showVoiceOverlay]);
-
-  // Start wake word detection on mount and when overlay closes
-  useEffect(() => {
-    if (!showVoiceOverlay) {
-      startWakeWordDetection();
-    } else if (recognition) {
-      recognition.stop();
-    }
-
-    return () => {
-      if (recognition) {
-        recognition.stop();
-      }
-    };
-  }, [showVoiceOverlay, startWakeWordDetection]);
-
-  const handleWakeWord = useCallback(() => {
-    console.log('Wake word detected!');
-    setShowVoiceOverlay(true);
-    
-    // Stop wake word detection
-    if (recognition) {
-      recognition.stop();
-    }
-  }, [recognition]);
-
-  const handleVoiceCommand = (command: string) => {
-    console.log('Voice command:', command);
-    // Commands are now handled in VoiceOverlay component
-  };
-
   const handleVoiceOverlayClose = () => {
     setShowVoiceOverlay(false);
-    // Wake word detection will restart automatically via useEffect
   };
 
   return (
@@ -178,7 +104,6 @@ export const TVInterface: React.FC<TVInterfaceProps> = () => {
       {/* Voice Overlay */}
       {showVoiceOverlay && (
         <VoiceOverlay 
-          onCommand={handleVoiceCommand}
           onClose={handleVoiceOverlayClose}
         />
       )}

@@ -1,71 +1,107 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Mic, Volume2, X, Loader } from 'lucide-react';
 
 interface VoiceOverlayProps {
-  onCommand: (command: string) => void;
   onClose: () => void;
 }
 
-export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onCommand, onClose }) => {
+export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
   const [isListening, setIsListening] = useState(true);
   const [transcript, setTranscript] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState('');
+  const recognitionRef = useRef<any>(null);
   const [suggestions] = useState([
     'Open Netflix',
-    'Open YouTube',
+    'Open YouTube', 
+    'Open Prime Video',
+    'Open Disney+',
     'Play music',
-    'Show weather',
     'What can you do?'
   ]);
 
-  useEffect(() => {
-    let recognition: any;
-    
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      } catch (error) {
+        console.log('Error stopping recognition:', error);
+      }
+    }
+    setIsListening(false);
+  };
+
+  const startListening = () => {
+    if (isProcessing || recognitionRef.current) {
+      return;
+    }
+
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      console.log('Speech recognition not supported');
+      return;
+    }
+
+    try {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-      recognition = new SpeechRecognition();
+      const recognition = new SpeechRecognition();
+      
       recognition.continuous = false;
       recognition.interimResults = true;
-      
-      recognition.onresult = (event: any) => {
-        const last = event.results.length - 1;
-        const transcript = event.results[last][0].transcript;
-        setTranscript(transcript);
-        
-        if (event.results[last].isFinal) {
-          handleCommand(transcript);
-        }
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        console.log('Voice overlay listening started');
+        setIsListening(true);
       };
 
-      recognition.onend = () => {
-        if (!isProcessing) {
-          setIsListening(false);
+      recognition.onresult = (event: any) => {
+        try {
+          const last = event.results.length - 1;
+          const transcript = event.results[last][0].transcript;
+          setTranscript(transcript);
+          
+          if (event.results[last].isFinal) {
+            handleCommand(transcript);
+          }
+        } catch (error) {
+          console.log('Error processing speech result:', error);
         }
       };
 
       recognition.onerror = (event: any) => {
-        console.log('Voice recognition error:', event.error);
-        if (!isProcessing) {
-          setIsListening(false);
-        }
+        console.log('Voice overlay recognition error:', event.error);
+        setIsListening(false);
+        recognitionRef.current = null;
       };
 
-      if (isListening && !isProcessing) {
-        recognition.start();
-      }
+      recognition.onend = () => {
+        console.log('Voice overlay recognition ended');
+        setIsListening(false);
+        recognitionRef.current = null;
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (error) {
+      console.log('Could not start voice overlay recognition:', error);
+      setIsListening(false);
     }
+  };
+
+  useEffect(() => {
+    // Start listening when component mounts
+    startListening();
 
     return () => {
-      if (recognition) {
-        recognition.stop();
-      }
+      stopListening();
     };
-  }, [isListening, isProcessing]);
+  }, []);
 
   const handleCommand = async (command: string) => {
     setIsProcessing(true);
+    setIsListening(false);
     const lowerCommand = command.toLowerCase().trim();
     
     // Check for app opening commands
@@ -149,6 +185,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onCommand, onClose }
   };
 
   const handleSuggestionClick = (suggestion: string) => {
+    setTranscript(suggestion);
     handleCommand(suggestion);
   };
 
@@ -207,7 +244,16 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onCommand, onClose }
                 <p className="text-white">{response}</p>
               </div>
             ) : (
-              <p className="text-lg text-gray-400">Ready to help</p>
+              <div>
+                <p className="text-lg text-gray-400 mb-2">Ready to help</p>
+                <button 
+                  onClick={startListening}
+                  className="px-4 py-2 bg-primary rounded-lg text-white"
+                  disabled={isProcessing}
+                >
+                  Start Listening
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -224,6 +270,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onCommand, onClose }
                 key={index}
                 onClick={() => handleSuggestionClick(suggestion)}
                 className="p-4 bg-gray-800/60 rounded-lg border border-gray-700/50 transition-all duration-200 text-left"
+                disabled={isProcessing}
               >
                 <div className="flex items-center">
                   <Volume2 size={16} className="mr-3 text-primary" />
