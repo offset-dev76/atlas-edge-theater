@@ -1,193 +1,60 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Volume2, X, Loader } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Mic, Volume2, X } from 'lucide-react';
 
 interface VoiceOverlayProps {
+  onCommand: (command: string) => void;
   onClose: () => void;
 }
 
-export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
+export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onCommand, onClose }) => {
   const [isListening, setIsListening] = useState(true);
   const [transcript, setTranscript] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [response, setResponse] = useState('');
-  const recognitionRef = useRef<any>(null);
   const [suggestions] = useState([
     'Open Netflix',
-    'Open YouTube', 
-    'Open Prime Video',
-    'Open Disney+',
     'Play music',
+    'Show weather',
+    'Search for movies',
     'What can you do?'
   ]);
 
-  const stopListening = () => {
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-        recognitionRef.current = null;
-      } catch (error) {
-        console.log('Error stopping recognition:', error);
-      }
-    }
-    setIsListening(false);
-  };
-
-  const startListening = () => {
-    if (isProcessing || recognitionRef.current) {
-      return;
-    }
-
-    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      console.log('Speech recognition not supported');
-      return;
-    }
-
-    try {
+  useEffect(() => {
+    let recognition: any;
+    
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-      const recognition = new SpeechRecognition();
-      
+      recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = true;
-      recognition.lang = 'en-US';
-
-      recognition.onstart = () => {
-        console.log('Voice overlay listening started');
-        setIsListening(true);
-      };
-
+      
       recognition.onresult = (event: any) => {
-        try {
-          const last = event.results.length - 1;
-          const transcript = event.results[last][0].transcript;
-          setTranscript(transcript);
-          
-          if (event.results[last].isFinal) {
-            handleCommand(transcript);
-          }
-        } catch (error) {
-          console.log('Error processing speech result:', error);
+        const last = event.results.length - 1;
+        const transcript = event.results[last][0].transcript;
+        setTranscript(transcript);
+        
+        if (event.results[last].isFinal) {
+          onCommand(transcript);
         }
       };
 
-      recognition.onerror = (event: any) => {
-        console.log('Voice overlay recognition error:', event.error);
-        setIsListening(false);
-        recognitionRef.current = null;
-      };
-
       recognition.onend = () => {
-        console.log('Voice overlay recognition ended');
         setIsListening(false);
-        recognitionRef.current = null;
       };
 
-      recognitionRef.current = recognition;
-      recognition.start();
-    } catch (error) {
-      console.log('Could not start voice overlay recognition:', error);
-      setIsListening(false);
-    }
-  };
+      recognition.onerror = (event: any) => {
+        console.log('Voice recognition error:', event.error);
+        setIsListening(false);
+      };
 
-  useEffect(() => {
-    // Start listening when component mounts
-    startListening();
+      recognition.start();
+    }
 
     return () => {
-      stopListening();
+      if (recognition) {
+        recognition.stop();
+      }
     };
-  }, []);
-
-  const handleCommand = async (command: string) => {
-    setIsProcessing(true);
-    setIsListening(false);
-    const lowerCommand = command.toLowerCase().trim();
-    
-    // Check for app opening commands
-    if (lowerCommand.includes('open netflix') || lowerCommand.includes('netflix')) {
-      window.open('https://www.netflix.com', '_blank');
-      setResponse('Opening Netflix for you!');
-      setTimeout(() => {
-        onClose();
-      }, 2000);
-      return;
-    }
-    
-    if (lowerCommand.includes('open youtube') || lowerCommand.includes('youtube')) {
-      window.open('https://www.youtube.com', '_blank');
-      setResponse('Opening YouTube for you!');
-      setTimeout(() => {
-        onClose();
-      }, 2000);
-      return;
-    }
-    
-    if (lowerCommand.includes('open prime') || lowerCommand.includes('prime video')) {
-      window.open('https://www.primevideo.com', '_blank');
-      setResponse('Opening Prime Video for you!');
-      setTimeout(() => {
-        onClose();
-      }, 2000);
-      return;
-    }
-    
-    if (lowerCommand.includes('open disney') || lowerCommand.includes('disney+')) {
-      window.open('https://www.disneyplus.com', '_blank');
-      setResponse('Opening Disney+ for you!');
-      setTimeout(() => {
-        onClose();
-      }, 2000);
-      return;
-    }
-    
-    if (lowerCommand.includes('open spotify') || lowerCommand.includes('music')) {
-      window.open('https://open.spotify.com', '_blank');
-      setResponse('Opening Spotify for you!');
-      setTimeout(() => {
-        onClose();
-      }, 2000);
-      return;
-    }
-
-    // For other queries, use Gemini AI
-    try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=AIzaSyCbaPuzoxV_CIicJ-ZpgKKNyeTLj8g-FWo`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `You are Atlas, an AI assistant for a smart TV. Keep responses short (2-3 lines max). User asked: ${command}`
-            }]
-          }]
-        })
-      });
-
-      const data = await response.json();
-      const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I couldn\'t process that request.';
-      setResponse(aiResponse);
-      
-      setTimeout(() => {
-        onClose();
-      }, 4000);
-    } catch (error) {
-      console.error('Error calling Gemini API:', error);
-      setResponse('Sorry, I\'m having trouble connecting right now.');
-      setTimeout(() => {
-        onClose();
-      }, 2000);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleSuggestionClick = (suggestion: string) => {
-    setTranscript(suggestion);
-    handleCommand(suggestion);
-  };
+  }, [onCommand]);
 
   return (
     <div className="voice-overlay">
@@ -195,7 +62,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full bg-gray-800/80 transition-colors"
+          className="absolute top-4 right-4 p-2 rounded-full bg-gray-800/80 hover:bg-gray-700/80 transition-colors"
         >
           <X size={20} />
         </button>
@@ -210,10 +77,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
 
           {/* Voice Indicator */}
           <div className="flex justify-center mb-6">
-            <div className={`p-6 rounded-full ${isListening ? 'bg-primary' : isProcessing ? 'bg-yellow-600' : 'bg-gray-600'} transition-all duration-300`}>
-              {isProcessing ? (
-                <Loader size={32} className="animate-spin" />
-              ) : isListening ? (
+            <div className={`p-6 rounded-full ${isListening ? 'bg-primary' : 'bg-gray-600'} transition-all duration-300`}>
+              {isListening ? (
                 <div className="flex items-center space-x-1">
                   <div className="w-1 h-8 bg-white rounded-full animate-voice-wave" style={{ animationDelay: '0ms' }}></div>
                   <div className="w-1 h-6 bg-white rounded-full animate-voice-wave" style={{ animationDelay: '100ms' }}></div>
@@ -229,62 +94,43 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
 
           {/* Status Text */}
           <div className="mb-8">
-            {isProcessing ? (
-              <p className="text-lg text-yellow-400">Processing your request...</p>
-            ) : isListening ? (
+            {isListening ? (
               <div>
                 <p className="text-lg text-white mb-2">Listening...</p>
                 {transcript && (
                   <p className="text-gray-400 italic">"{transcript}"</p>
                 )}
               </div>
-            ) : response ? (
-              <div>
-                <p className="text-lg text-green-400 mb-2">Atlas:</p>
-                <p className="text-white">{response}</p>
-              </div>
             ) : (
-              <div>
-                <p className="text-lg text-gray-400 mb-2">Ready to help</p>
-                <button 
-                  onClick={startListening}
-                  className="px-4 py-2 bg-primary rounded-lg text-white"
-                  disabled={isProcessing}
-                >
-                  Start Listening
-                </button>
-              </div>
+              <p className="text-lg text-gray-400">Ready to help</p>
             )}
           </div>
         </div>
 
-        {/* Suggestions - only show if not processing and no response */}
-        {!isProcessing && !response && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="col-span-full mb-4">
-              <h3 className="text-lg font-semibold text-white mb-4">Try saying:</h3>
-            </div>
-            
-            {suggestions.map((suggestion, index) => (
-              <button
-                key={index}
-                onClick={() => handleSuggestionClick(suggestion)}
-                className="p-4 bg-gray-800/60 rounded-lg border border-gray-700/50 transition-all duration-200 text-left"
-                disabled={isProcessing}
-              >
-                <div className="flex items-center">
-                  <Volume2 size={16} className="mr-3 text-primary" />
-                  <span className="text-white">{suggestion}</span>
-                </div>
-              </button>
-            ))}
+        {/* Suggestions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="col-span-full mb-4">
+            <h3 className="text-lg font-semibold text-white mb-4">Try saying:</h3>
           </div>
-        )}
+          
+          {suggestions.map((suggestion, index) => (
+            <button
+              key={index}
+              onClick={() => onCommand(suggestion)}
+              className="p-4 bg-gray-800/60 rounded-lg border border-gray-700/50 hover:border-primary/50 hover:bg-gray-700/60 transition-all duration-200 text-left"
+            >
+              <div className="flex items-center">
+                <Volume2 size={16} className="mr-3 text-primary" />
+                <span className="text-white">{suggestion}</span>
+              </div>
+            </button>
+          ))}
+        </div>
 
         {/* Capabilities */}
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-500">
-            Atlas can help you navigate your TV, open apps, search for content, and answer questions.
+            Atlas can help you navigate your TV, open apps, search for content, and more.
           </p>
         </div>
       </div>
