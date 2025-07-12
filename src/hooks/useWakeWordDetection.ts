@@ -10,8 +10,17 @@ export const useWakeWordDetection = ({ onWakeWord, isActive }: UseWakeWordDetect
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
   const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isActiveRef = useRef(isActive);
+  const shouldRestartRef = useRef(true);
+
+  // Update the ref when isActive changes
+  useEffect(() => {
+    isActiveRef.current = isActive;
+  }, [isActive]);
 
   const stopRecognition = useCallback(() => {
+    shouldRestartRef.current = false;
+    
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -20,15 +29,18 @@ export const useWakeWordDetection = ({ onWakeWord, isActive }: UseWakeWordDetect
         console.log('Error stopping recognition:', error);
       }
     }
+    
     if (restartTimeoutRef.current) {
       clearTimeout(restartTimeoutRef.current);
       restartTimeoutRef.current = null;
     }
+    
     setIsListening(false);
   }, []);
 
   const startRecognition = useCallback(() => {
-    if (!isActive || recognitionRef.current) {
+    // Don't start if not active, already running, or shouldn't restart
+    if (!isActiveRef.current || recognitionRef.current || !shouldRestartRef.current) {
       return;
     }
 
@@ -70,13 +82,16 @@ export const useWakeWordDetection = ({ onWakeWord, isActive }: UseWakeWordDetect
         setIsListening(false);
         recognitionRef.current = null;
         
-        // Only restart if still active and not a fatal error
-        if (isActive && event.error !== 'aborted' && event.error !== 'not-allowed') {
+        // Only restart for specific recoverable errors and if still active
+        if (isActiveRef.current && shouldRestartRef.current && 
+            event.error !== 'aborted' && 
+            event.error !== 'not-allowed' && 
+            event.error !== 'network') {
           restartTimeoutRef.current = setTimeout(() => {
-            if (isActive) {
+            if (isActiveRef.current && shouldRestartRef.current) {
               startRecognition();
             }
-          }, 2000);
+          }, 3000); // Longer delay to prevent rapid restarts
         }
       };
 
@@ -85,13 +100,13 @@ export const useWakeWordDetection = ({ onWakeWord, isActive }: UseWakeWordDetect
         setIsListening(false);
         recognitionRef.current = null;
         
-        // Restart if still active
-        if (isActive) {
+        // Only restart if still active and should restart
+        if (isActiveRef.current && shouldRestartRef.current) {
           restartTimeoutRef.current = setTimeout(() => {
-            if (isActive) {
+            if (isActiveRef.current && shouldRestartRef.current) {
               startRecognition();
             }
-          }, 1000);
+          }, 2000); // Reasonable delay before restart
         }
       };
 
@@ -101,10 +116,11 @@ export const useWakeWordDetection = ({ onWakeWord, isActive }: UseWakeWordDetect
       console.log('Could not start wake word detection:', error);
       setIsListening(false);
     }
-  }, [isActive, onWakeWord, stopRecognition]);
+  }, [onWakeWord, stopRecognition]);
 
   useEffect(() => {
     if (isActive) {
+      shouldRestartRef.current = true;
       startRecognition();
     } else {
       stopRecognition();
