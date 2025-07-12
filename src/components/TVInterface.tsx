@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Play, Mic, MicOff, Settings, Search } from 'lucide-react';
 import { AppGrid } from './AppGrid';
@@ -12,7 +11,8 @@ export const TVInterface: React.FC<TVInterfaceProps> = () => {
   const [isListening, setIsListening] = useState(false);
   const [showVoiceOverlay, setShowVoiceOverlay] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [focusedSection, setFocusedSection] = useState<'hero' | 'apps'>('hero');
+  const [focusedSection, setFocusedSection] = useState<'hero' | 'apps' | 'header'>('hero');
+  const [focusedHeaderItem, setFocusedHeaderItem] = useState(0);
 
   // Update time every minute
   useEffect(() => {
@@ -89,6 +89,8 @@ export const TVInterface: React.FC<TVInterfaceProps> = () => {
       <NavigationHandler 
         focusedSection={focusedSection}
         setFocusedSection={setFocusedSection}
+        focusedHeaderItem={focusedHeaderItem}
+        setFocusedHeaderItem={setFocusedHeaderItem}
       />
 
       {/* Header */}
@@ -112,10 +114,18 @@ export const TVInterface: React.FC<TVInterfaceProps> = () => {
             <div className={`p-2 rounded-full ${isListening ? 'bg-green-600' : 'bg-gray-600'}`}>
               {isListening ? <Mic size={16} /> : <MicOff size={16} />}
             </div>
-            <button className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors">
+            <button className={`p-2 rounded-full transition-colors ${
+              focusedSection === 'header' && focusedHeaderItem === 0 
+                ? 'bg-primary ring-2 ring-primary/50' 
+                : 'bg-gray-700'
+            }`}>
               <Search size={16} />
             </button>
-            <button className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors">
+            <button className={`p-2 rounded-full transition-colors ${
+              focusedSection === 'header' && focusedHeaderItem === 1 
+                ? 'bg-primary ring-2 ring-primary/50' 
+                : 'bg-gray-700'
+            }`}>
               <Settings size={16} />
             </button>
           </div>
@@ -125,10 +135,12 @@ export const TVInterface: React.FC<TVInterfaceProps> = () => {
       {/* Main Content */}
       <main className="px-6 pb-6">
         {/* Hero Section */}
-        <HeroSection focused={focusedSection === 'hero'} />
+        <div className="hero-section">
+          <HeroSection focused={focusedSection === 'hero'} />
+        </div>
         
         {/* Apps Section */}
-        <section className="mt-12">
+        <section className="mt-12 apps-section">
           <h2 className="text-2xl font-bold mb-6 text-white">Your Apps</h2>
           <AppGrid focused={focusedSection === 'apps'} />
         </section>

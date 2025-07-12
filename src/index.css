@@ -83,10 +83,6 @@ All colors MUST be HSL.
     @apply bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm border border-gray-700/50 rounded-xl transition-all duration-300;
   }
 
-  .tv-card:hover {
-    @apply scale-105 border-primary/50 shadow-lg shadow-primary/20;
-  }
-
   .tv-card.focused {
     @apply scale-110 border-primary shadow-xl shadow-primary/40 ring-2 ring-primary/50;
   }

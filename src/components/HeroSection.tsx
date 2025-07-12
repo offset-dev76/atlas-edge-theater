@@ -57,12 +57,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ focused }) => {
             
             {/* Action Buttons */}
             <div className="flex space-x-4">
-              <button className="flex items-center space-x-3 bg-white text-black px-8 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors">
+              <button className="flex items-center space-x-3 bg-white text-black px-8 py-3 rounded-lg font-semibold transition-colors">
                 <Play size={20} className="fill-black" />
                 <span>Get Started</span>
               </button>
               
-              <button className="flex items-center space-x-3 bg-gray-700/80 text-white px-8 py-3 rounded-lg font-semibold hover:bg-gray-600/80 transition-colors">
+              <button className="flex items-center space-x-3 bg-gray-700/80 text-white px-8 py-3 rounded-lg font-semibold transition-colors">
                 <Info size={20} />
                 <span>Learn More</span>
               </button>

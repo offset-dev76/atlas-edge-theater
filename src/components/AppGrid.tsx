@@ -137,7 +137,7 @@ export const AppGrid: React.FC<AppGridProps> = ({ focused }) => {
           onClick={() => handleAppClick(app)}
         >
           {/* App Icon */}
-          <div className={`w-16 h-16 ${app.color} rounded-2xl flex items-center justify-center mb-4 text-2xl transition-transform group-hover:scale-110`}>
+          <div className={`w-16 h-16 ${app.color} rounded-2xl flex items-center justify-center mb-4 text-2xl transition-transform`}>
             {app.icon}
           </div>
           
@@ -147,7 +147,7 @@ export const AppGrid: React.FC<AppGridProps> = ({ focused }) => {
             <p className="text-sm text-gray-400 mb-3">{app.category}</p>
             
             {/* Action Indicator */}
-            <div className="flex items-center text-xs text-gray-500 group-hover:text-primary transition-colors">
+            <div className="flex items-center text-xs text-gray-500">
               <ExternalLink size={12} className="mr-1" />
               <span>Open App</span>
             </div>
